@@ -1,8 +1,9 @@
 # Laser Triangulation 3D Scanner — Project Folder Guide
 
 This folder contains everything needed to go from raw scan videos to a
-finished 3D model: the captured footage, the hardware capture scripts, and
-the single script that turns the footage into a point cloud and mesh.
+calibrated 3D point cloud: the captured footage, the hardware capture
+scripts, and the single script that turns the footage into the final point
+cloud.
 
 ---
 
@@ -15,11 +16,11 @@ the single script that turns the footage into a point cloud and mesh.
 | `scan_up_240deg.h264` | Same sweep, object rotated 240° |
 | `Move_Actuator2.py` | Hardware script: drives the linear actuator (Raspberry Pi GPIO) |
 | `video_scan.py` | Hardware script: records video while the actuator sweeps |
-| `run_pipeline.py` | **The main script.** Turns the 3 videos into a 3D model |
+| `run_pipeline.py` | **The main script.** Turns the 3 videos into one cleaned point cloud |
 
-Everything below (`pointcloud_merged.ply`, `mesh_poisson.ply`, etc.) is
-**output** — it gets regenerated every time you run `run_pipeline.py`, so it's
-safe to delete and re-run if you ever want a clean slate.
+`pointcloud_merged_cleaned.ply` is the **output** — it gets regenerated every
+time you run `run_pipeline.py`, so it's safe to delete and re-run if you ever
+want a clean slate.
 
 ---
 
@@ -30,8 +31,8 @@ python run_pipeline.py
 ```
 
 This reads the three `.h264` videos already in this folder and, after a few
-minutes, produces four output files (see below). To also pop up an
-interactive 3D viewer at the end:
+minutes, produces one output file: `pointcloud_merged_cleaned.ply`. To also
+pop up an interactive 3D viewer at the end:
 
 ```bash
 python run_pipeline.py --view
@@ -55,22 +56,20 @@ pip install opencv-python numpy scipy open3d
 3. **Rotates and merges** the three angle scans into one shared 3D point
    cloud.
 4. **Cleans up noise** — removes background-wall points and stray mistracked
-   points.
-5. **Builds a surface mesh** from the cleaned points, two different ways.
+   points, and saves the result as `pointcloud_merged_cleaned.ply`.
 
 ---
 
-## Output files — what each one means
+## Output file — what it means
 
-| File | What it is | Do I need it? |
-|---|---|---|
-| `pointcloud_merged.ply` | Raw 3D points, before cleanup | No — intermediate step only |
-| `pointcloud_merged_cleaned.ply` | Same points, noise/spikes removed | Keep if you want the raw point-cloud view |
-| `mesh_poisson.ply` | Solid, closed surface — fills unscanned gaps with guessed geometry | **Use this if you just want one "finished-looking" 3D model** |
-| `mesh_ballpivot.ply` | Surface built only where real data exists — leaves honest gaps | Use this if you want to show only what was actually measured |
+| File | What it is |
+|---|---|
+| `pointcloud_merged_cleaned.ply` | The final result: a calibrated, merged, noise-cleaned 3D point cloud combining all three scan angles |
 
-If you only need one result to present, **`mesh_poisson.ply`** is the one
-that looks like a complete 3D object.
+This is a **point cloud** (a set of individual 3D dots, not a solid surface).
+If you later want an actual closed surface mesh (e.g. for 3D printing), that
+would be a separate step on top of this file — ask if you want that added
+back in.
 
 ---
 
@@ -78,13 +77,11 @@ that looks like a complete 3D object.
 
 **Quickest — one-liner:**
 ```bash
-python -c "import open3d as o3d; o3d.visualization.draw_geometries([o3d.io.read_triangle_mesh('mesh_poisson.ply')])"
+python -c "import open3d as o3d; o3d.visualization.draw_geometries([o3d.io.read_point_cloud('pointcloud_merged_cleaned.ply')])"
 ```
-(Swap in `read_point_cloud(...)` instead of `read_triangle_mesh(...)` for the
-two `pointcloud_*.ply` files.)
 
-**Or:** open any `.ply` file in **MeshLab** (File → Import Mesh) for nicer
-rendering controls, lighting, and measurement tools.
+**Or:** open `pointcloud_merged_cleaned.ply` in **MeshLab** (File → Import
+Mesh) for nicer rendering controls, lighting, and measurement tools.
 
 ---
 
@@ -93,11 +90,11 @@ rendering controls, lighting, and measurement tools.
 The scan only covers **3 angles, 120° apart**. A boxy object has flat faces
 with sharp edges, so there are real gaps between the three scanned faces —
 parts of the surface were simply never facing the camera closely enough at
-any of the three positions to be measured. This shows up as visible holes in
-`mesh_ballpivot.ply`, and as smoothed-over (partly guessed) regions in
-`mesh_poisson.ply`. It's a coverage limitation, not a bug — fixing it means
-scanning from more angles (e.g. every 30–45°), which is the main item for the
-next phase of the project.
+any of the three positions to be measured — so `pointcloud_merged_cleaned.ply`
+will show three dense clusters of points with real empty gaps between them,
+not a fully enclosed surface. It's a coverage limitation, not a bug — fixing
+it means scanning from more angles (e.g. every 30–45°), which is the main
+item for the next phase of the project.
 
 ---
 
